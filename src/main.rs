@@ -2,7 +2,7 @@
 use std::io::{self, prelude::*, stdin, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 //use std::str::Bytes;
-use std::thread::{sleep, spawn};
+use std::thread::{self, sleep, spawn};
 //use core::net::socket_addr;
 use regex::Regex;
 //fn read_stream()
@@ -24,14 +24,15 @@ fn url_parser(resp: &String) {
 // io::stdin().read_line(&mut resp).and_then(op)
 
 fn handle_connection(mut stream: TcpStream) {
-//    let mut _buffer: [u8; 256] = [0; 256];
-//    let _ten_millis = time::Duration::from_millis(1000);
+    //    let mut _buffer: [u8; 256] = [0; 256];
+    //    let _ten_millis = time::Duration::from_millis(1000);
     stream.set_nodelay(true).unwrap();
     stream.set_nonblocking(true).unwrap();
     let buf_reader = BufReader::new(&mut stream);
     let http_request: Vec<_> = buf_reader
         .lines()
-        .map(|result| result.unwrap())
+        .flatten()
+    //    / .map(|result| result.unwrap())
         .take_while(|line| !line.is_empty())
         .collect();
 
@@ -76,15 +77,24 @@ fn main() {
 
     println!("Address  for binding: {paddr}");
     let listener = TcpListener::bind(paddr).unwrap();
-    let t = 
-        spawn(move || loop {
-            for stream in listener.incoming() {
-                match stream {
-                    Ok(stream) => handle_connection(stream),
-                    Err(e) => println!("couldn't get client: {e:?}"),
-                }
-            }
+    //let t =
+    // spawn(move || loop {
+    //     for stream in listener.incoming() {
+    //         match stream {
+    //             Ok(stream) => handle_connection(stream),
+    //             Err(e) => println!("couldn't get client: {e:?}"),
+    //         }
+    //     }
+    // });
+    for stream in listener.incoming() {
+        //let stream = stream.unwrap();
+        thread::spawn(|| match stream {
+            Ok(stream) => handle_connection(stream),
+            Err(e) => println!("couldn't get client: {e:?}"),
+            //   handle_connection(stream)
         });
-    assert!(t.join().is_ok());
-    //Ok(())
+
+        //Ok(())
+    }
+    //assert!(t.join().is_ok());
 }
