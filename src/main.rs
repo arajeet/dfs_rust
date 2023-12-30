@@ -1,5 +1,5 @@
 //use std::borrow::Borrow;
-use std::io::{self, stdin, Read, Write};
+use std::io::{self, stdin, Read, Write,prelude::*,BufReader};
 use std::net::{TcpListener, TcpStream};
 //use std::str::Bytes;
 use std::thread::{sleep, spawn};
@@ -12,9 +12,10 @@ use std::time;
 
 fn url_parser(resp: &String) {
     let re = Regex::new(r#"(^GET|POST?) (/.*) (HTTP.*)"#).unwrap();
-
+    //let re = Regex::new(r#"(^GET|POST?) (/.*)"#).unwrap();
     let mut results = vec![];
     for (_, [method, path, http_version]) in re.captures_iter(&resp).map(|c| c.extract()) {
+        //for (_, [method, path]) in re.captures_iter(&resp).map(|c| c.extract()) {
         results.push((method, path, http_version));
     }
     for data in results {
@@ -24,38 +25,13 @@ fn url_parser(resp: &String) {
 // io::stdin().read_line(&mut resp).and_then(op)
 
 fn handle_connection(mut stream: TcpStream) {
-    let mut http_info = String::new();
-    // stream.set_nonblocking(true).unwrap();
-    let mut buffer = Vec::new();
-    // let len = stream.peek(&mut buf).expect("peek failed");
+    let mut buffer: [u8; 256] = [0; 256];
     let ten_millis = time::Duration::from_millis(1000);
     stream.set_nodelay(true).unwrap();
     stream.set_nonblocking(true).unwrap();
-    //  stream.set_ttl(10).unwrap();
-    // let mut response= stream.try_clone();
-    //    let respx= stream.borrow();
-
-    //    for byte in respx.bytes(){
-    //        println!("{}", byte.unwrap());
-    //    }
-         loop {
-        match stream.read_to_end(&mut buffer) {
+/*     loop {
+        match stream.read(&mut buffer) {
             Ok(_) => break,
-            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-                // wait until network socket is ready, typically implemented
-                // via platform-specific APIs such as epoll or IOCP
-
-                println!("{e}");
-                sleep(ten_millis)
-            }
-            Err(e) => panic!("encountered IO error: {e}"),
-        };
-    } 
-/*     stream.read_to_end(buf)
-    loop {
-        match stream.read_to_string(&mut http_info) {
-            Ok(_) => break,
-            // Err(e) => println!("couldn't get client: {e:?}"),
             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                 // wait until network socket is ready, typically implemented
                 // via platform-specific APIs such as epoll or IOCP
@@ -66,10 +42,19 @@ fn handle_connection(mut stream: TcpStream) {
             Err(e) => panic!("encountered IO error: {e}"),
         };
     } */
-    let s = String::from_utf8(buffer).expect("Found invalid UTF-8");
-    println!("result: {}", s);
+    let buf_reader = BufReader::new(&mut stream);
+    let http_request: Vec<_> = buf_reader
+        .lines()
+        .map(|result| result.unwrap())
+        .take_while(|line| !line.is_empty())
+        .collect();
+
+    println!("Request: {:#?}", http_request);
+    let s = http_request.join("/n");
+    //let s = String::from_utf8(http_request).expect("Found invalid UTF-8");
+   // println!("result: {}", s);
     url_parser(&s);
-    println!("{http_info}");
+    // println!("{http_info}");
     //stream.write(buf)
     stream
         .write_all(
@@ -89,11 +74,6 @@ Content-Type: text/html; charset=utf-8
 </html>",
         )
         .unwrap();
-    //stream.flush().unwrap();
-    // stream.write(b"handleConnection").unwrap();
-    //    stream.shutdown(std::net::Shutdown::Both).expect("Shutdown Failed");
-    println!("{http_info}");
-    //  stream.set_nodelay(true);
 }
 
 fn main() {
@@ -111,17 +91,18 @@ fn main() {
 
     println!("Address  for binding: {paddr}");
     let listener = TcpListener::bind(paddr).unwrap();
-   // let tcp_listener2 = listener.try_clone().unwrap();
     let t = spawn(move || loop {
-        match listener.accept() {
-            //  Ok((_socket, addr)) => println!("new client: {addr:?}"),
-            Ok((_socket, _)) => handle_connection(_socket),
-            Err(e) => println!("couldn't get client: {e:?}"),
+        for stream in listener.incoming() {
+            match stream {
+                //  Ok((_socket, addr)) => println!("new client: {addr:?}"),
+                Ok(stream) => handle_connection(stream),
+                Err(e) => println!("couldn't get client: {e:?}"),
+            }
         }
 
         //  listener.
     });
- //   drop(listener);
+    //   drop(listener);
     assert!(t.join().is_ok());
     //Ok(())
 }
