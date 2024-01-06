@@ -1,8 +1,51 @@
 //use std::borrow::Borrow;
 use std::io::{self, prelude::*, BufReader,};
 use std::net::{TcpListener, TcpStream};
-use std::thread::{self};
+use std::sync::Arc;
+use std::thread::{self, JoinHandle};
 use regex::Regex;
+use std::sync::mpsc::channel;
+use std::sync::mpsc::{Sender, Receiver};
+#[derive(Debug)]
+struct ThreadPool<Z> {
+    size: usize,
+    tx: Sender<Z>,
+    rx : Receiver<Z>
+
+}
+
+impl<Z> ThreadPool<Z>  {
+
+      pub fn new<F,T>(&self,size: usize)  -> Self
+    where 
+        F: FnOnce() -> T,
+        T: Send + 'static, 
+   {
+        (self.tx, self.rx)= channel();
+        let pool_size = Arc::new(size);
+        for i in 1..*pool_size {
+            thread::spawn(move||self.)
+        }
+       // return true
+   }
+
+    pub fn send<F,T>(&self,t: T)  -> bool
+        where 
+         F: FnOnce() -> T,
+         T: Send + 'static,
+    {
+        //let (tx, _rx): (Sender<T>, Receiver<T>) = channel();
+
+        let my_size_join  = thread::spawn( move || self.tx.send(t).unwrap());
+        return my_size_join.join().is_ok();
+    }
+
+ 
+}
+
+
+
+
 
 fn url_parser(resp: &String) {
     let re = Regex::new(r#"(^GET|POST?) (/.*) (HTTP.*)"#).unwrap();
